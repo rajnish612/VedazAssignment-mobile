@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
@@ -7,35 +8,66 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-
-const Users = () => {
+import { SERVER_URL, X_API_KEY } from '@env';
+const Users = ({ navigation }) => {
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  const mockUsers = [
-    { id: '1', name: 'John Doe', lastMessage: 'john@example.com' },
-    { id: '2', name: 'Jane Smith', lastMessage: 'jane@example.com' },
-    { id: '3', name: 'Mike Johnson', lastMessage: 'mike@example.com' },
-  ];
+  const [loading, setLoading] = useState(false);
+  const [token, setToken] = useState('');
 
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setUsers(mockUsers);
+    const checkToken = async () => {
+      setLoading(true);
+      const isTokenFound = await AsyncStorage.getItem('token');
+      if (!isTokenFound) {
+        navigation.replace('Login');
+      }
       setLoading(false);
-    }, 1000);
+      setToken(isTokenFound);
+    };
+    checkToken();
   }, []);
+  useEffect(() => {
+    const fetchUsers = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`${SERVER_URL}/users`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': X_API_KEY,
+            authorization: `Bearer ${token}`,
+          },
+        });
+        if (res?.status == 401) {
+          Alert.alert('Session expired, please login again');
+          navigation.replace('Login');
+        }
+        const data = await res.json();
+        setUsers(data?.users);
+      } catch (err) {
+        console.log(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (!token) return;
+    fetchUsers();
+  }, [token]);
 
   const renderItem = ({ item }) => (
-    <TouchableOpacity style={styles.userCard}>
+    <TouchableOpacity
+      onPress={() => navigation.navigate('Conversation')}
+      style={styles.userCard}
+    >
       <View style={styles.userInfo}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>
-            {item.name.charAt(0).toUpperCase()}
+            {item.username.charAt(0).toUpperCase()}
           </Text>
         </View>
         <View style={styles.userDetails}>
-          <Text style={styles.userName}>{item.name}</Text>
+          <Text style={styles.userName}>{item.username}</Text>
           <Text style={styles.lastMessage}>{item.lastMessage}</Text>
         </View>
       </View>
@@ -56,7 +88,7 @@ const Users = () => {
       <FlatList
         data={users}
         renderItem={renderItem}
-        keyExtractor={item => item.id}
+        keyExtractor={item => item._id}
         contentContainerStyle={styles.listContainer}
       />
     </View>

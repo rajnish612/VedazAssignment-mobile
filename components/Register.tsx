@@ -6,8 +6,9 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { SERVER_URL, X_API_KEY } from '@env';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 const Register = ({ navigation }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -55,7 +56,15 @@ const Register = ({ navigation }) => {
       Alert.alert(err.message);
     }
   };
-
+  useEffect(() => {
+    const checkLogin = async () => {
+      const token = await AsyncStorage.getItem('token');
+      if (token) {
+        navigation.navigate('Users');
+      }
+    };
+    checkLogin();
+  }, []);
   return (
     <View style={styles.container}>
       <View style={styles.registerBox}>

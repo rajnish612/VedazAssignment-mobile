@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { SERVER_URL, X_API_KEY } from '@env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 const Login = ({ navigation }) => {
@@ -45,7 +45,7 @@ const Login = ({ navigation }) => {
       });
       const data = await res.json();
       const token = data.token;
-      await AsyncStorage.setItem('token', token);
+      if (token) await AsyncStorage.setItem('token', token);
       if (data.success && token) {
         navigation.navigate('Users');
       } else if (!data.success && data.message) {
@@ -55,6 +55,15 @@ const Login = ({ navigation }) => {
       Alert.alert('error', err.message);
     }
   };
+  useEffect(() => {
+    const checkLogin = async () => {
+      const token = await AsyncStorage.getItem('token');
+      if (token) {
+        navigation.navigate('Users');
+      }
+    };
+    checkLogin();
+  }, []);
   return (
     <View style={styles.container}>
       <View style={styles.loginBox}>
