@@ -7,13 +7,16 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
+import useSocket from '../hooks/Socket.js';
 import { SERVER_URL, X_API_KEY } from '@env';
 const Users = ({ navigation }) => {
+  const socket = useSocket();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState('');
-
+  const [self, setSelf] = useState(null);
   useEffect(() => {
     const checkToken = async () => {
       setLoading(true);
@@ -24,6 +27,7 @@ const Users = ({ navigation }) => {
       setLoading(false);
       setToken(isTokenFound);
     };
+
     checkToken();
   }, []);
   useEffect(() => {
@@ -50,14 +54,48 @@ const Users = ({ navigation }) => {
         setLoading(false);
       }
     };
-
+    const fetchSelf = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`${SERVER_URL}/user`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': X_API_KEY,
+            authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await res.json();
+        setSelf(data?.user);
+      } catch (err) {
+        Alert.alert('Error fetching user data', err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
     if (!token) return;
+    fetchSelf();
     fetchUsers();
   }, [token]);
-
+  useEffect(() => {
+    socket.on('connect', () => {
+      socket.emit('join', { userId: self?._id });
+    });
+    return () => {
+      socket.off('disconnect');
+      console.log('Socket disconnected');
+    };
+  }, [socket, self?._id]);
   const renderItem = ({ item }) => (
     <TouchableOpacity
-      onPress={() => navigation.navigate('Conversation')}
+      onPress={() =>
+        navigation.navigate('Conversation', {
+          userId: item._id,
+          username: item.username,
+          self,
+          socket: socket,
+        })
+      }
       style={styles.userCard}
     >
       <View style={styles.userInfo}>
@@ -91,6 +129,15 @@ const Users = ({ navigation }) => {
         keyExtractor={item => item._id}
         contentContainerStyle={styles.listContainer}
       />
+      <TouchableOpacity
+        style={styles.logoutButton}
+        onPress={async () => {
+          await AsyncStorage.removeItem('token');
+          navigation.navigate('Login');
+        }}
+      >
+        <Text>Logout</Text>
+      </TouchableOpacity>
     </View>
   );
 };

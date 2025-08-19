@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -6,52 +6,157 @@ import {
   FlatList,
   TextInput,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
-
-const Conversation = () => {
+import { SERVER_URL, X_API_KEY } from '@env';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+const Conversation = ({ navigation, route }) => {
+  const { self, socket } = route.params;
   const [message, setMessage] = useState('');
-  const [conversations, setConversations] = useState([
-    { id: '1', text: 'Hey there!', sender: 'other' },
-    { id: '2', text: 'Hi! How are you?', sender: 'self' },
-    { id: '3', text: 'I am good, thanks!', sender: 'other' },
-    { id: '4', text: 'What are you up to?', sender: 'self' },
+  const [token, setToken] = useState('');
+  console.log('socket', socket);
+
+  const [messages, setMessages] = useState([
+    {
+      id: '1',
+      text: 'Hey there!',
+      sender: 'John',
+      receiver: 'Jane',
+    },
+    {
+      id: '2',
+      text: 'Hi! How are you?',
+      sender: 'Jane',
+      receiver: 'John',
+    },
+    {
+      id: '3',
+      text: 'I am good, thanks!',
+      sender: 'John',
+      receiver: 'Jane',
+    },
   ]);
 
-  const sendMessage = () => {
-    if (message.trim()) {
-      setConversations([
-        ...conversations,
-        { id: Date.now().toString(), text: message, sender: 'self' },
-      ]);
-      setMessage('');
+  useEffect(() => {
+    const checkToken = async () => {
+      const isTokenFound = await AsyncStorage.getItem('token');
+      if (!isTokenFound) {
+        navigation.replace('Login');
+      }
+
+      setToken(isTokenFound);
+    };
+    checkToken();
+  }, []);
+  const sendMessage = async () => {
+    if (!message.trim()) return;
+    try {
+      const res = await fetch(`${SERVER_URL}/conversation/messages/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': X_API_KEY,
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          receiver: route?.params?.userId,
+          content: message,
+        }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setMessages([
+          ...messages,
+          {
+            ...data.messages, // Assuming the API returns the message object
+          },
+        ]);
+        setMessage('');
+      }
+      socket.emit('message', {
+        ...data.messages,
+      });
+    } catch (err) {
+      Alert.alert('Eror sending message', err.message);
     }
   };
+  useEffect(() => {
+    const fetchMessages = async () => {
+      try {
+        const res = await fetch(
+          `${SERVER_URL}/conversation/${route.params.userId}/messages`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': X_API_KEY,
+              authorization: `Bearer ${token}`,
+            },
+          },
+        );
+        const data = await res.json();
+        setMessages(data?.messages || []);
+      } catch (err) {
+        Alert.alert('Error fetching messages', err.message);
+      }
+    };
+    fetchMessages();
+  }, [route?.params?.userId, token]);
+  useEffect(() => {
+    socket.on('new', newMessage => {
+      if (
+        newMessage.receiver._id === self?._id ||
+        newMessage.sender._id === self?._id
+      ) {
+        setMessages(prevMessages => [...prevMessages, newMessage]);
+      }
+    });
+  }, [socket, self?._id]);
+  console.log(messages);
 
   const renderMessage = ({ item }) => (
-    <View
-      style={[
-        styles.messageContainer,
-        item.sender === 'self' ? styles.selfMessage : styles.otherMessage,
-      ]}>
-      <Text
+    <View style={styles.messageContainer}>
+      {item?.sender._id !== self?._id && item?.content && (
+        <View style={styles.senderInfo}>
+          <Text style={styles.senderName}>{item.sender.username}</Text>
+        </View>
+      )}
+      <View
         style={[
-          styles.messageText,
-          item.sender === 'self' ? styles.selfMessageText : styles.otherMessageText,
-        ]}>
-        {item.text}
-      </Text>
+          styles.messageBubble,
+          item.sender._id === self?._id
+            ? styles.selfMessage
+            : styles.otherMessage,
+        ]}
+      >
+        <Text
+          style={[
+            styles.messageText,
+            item.sender._id === self?._id
+              ? styles.selfMessageText
+              : styles.otherMessageText,
+          ]}
+        >
+          {item.content}
+        </Text>
+      </View>
     </View>
   );
 
   return (
     <View style={styles.container}>
+      <View style={styles.header}>
+        {/* <Text style={styles.headerText}>Chat with {messages[0].receiver}</Text> */}
+      </View>
+
       <FlatList
-        data={conversations}
+        data={messages}
         renderItem={renderMessage}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.messagesList}
       />
-      
+
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
@@ -74,12 +179,32 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
+  header: {
+    padding: 16,
+    backgroundColor: '#007AFF',
+    alignItems: 'center',
+  },
+  headerText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
   messagesList: {
     padding: 16,
   },
   messageContainer: {
-    maxWidth: '80%',
     marginVertical: 4,
+  },
+  senderInfo: {
+    marginBottom: 4,
+  },
+  senderName: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 8,
+  },
+  messageBubble: {
+    maxWidth: '80%',
     padding: 12,
     borderRadius: 16,
   },
