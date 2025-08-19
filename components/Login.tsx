@@ -4,13 +4,57 @@ import {
   View,
   TextInput,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import React, { useState } from 'react';
-
+import { SERVER_URL, X_API_KEY } from '@env';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 const Login = ({ navigation }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [errors, setErrors] = useState('');
+  const validateForm = () => {
+    let isValid = true; // Reset errors
+    let tempErrors = {};
+    if (!username) {
+      tempErrors.username = 'Username is required';
+      isValid = false;
+    }
+    if (!password) {
+      tempErrors.password = 'Password is required';
+      isValid = false;
+    }
+    setErrors(tempErrors);
+    return isValid;
+  };
+  const handleLogin = async () => {
+    const isValid = validateForm();
+    console.log(SERVER_URL);
 
+    if (!isValid) {
+      return;
+    }
+    try {
+      const res = await fetch(`${SERVER_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': X_API_KEY,
+        },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json();
+      const token = data.token;
+      await AsyncStorage.setItem('token', token);
+      if (data.success && token) {
+        navigation.navigate('Users');
+      } else if (!data.success && data.message) {
+        Alert.alert('error', data.message);
+      }
+    } catch (err) {
+      Alert.alert('error', err.message);
+    }
+  };
   return (
     <View style={styles.container}>
       <View style={styles.loginBox}>
@@ -24,7 +68,9 @@ const Login = ({ navigation }) => {
             onChangeText={setUsername}
             placeholderTextColor="#666"
           />
-
+          {errors.username && (
+            <Text style={{ color: 'red' }}>{errors.username}</Text>
+          )}
           <TextInput
             style={styles.input}
             placeholder="Password"
@@ -33,9 +79,15 @@ const Login = ({ navigation }) => {
             secureTextEntry
             placeholderTextColor="#666"
           />
+          {errors.password && (
+            <Text style={{ color: 'red' }}>{errors.password}</Text>
+          )}
         </View>
 
-        <TouchableOpacity style={styles.loginButton}>
+        <TouchableOpacity
+          onPress={() => handleLogin()}
+          style={styles.loginButton}
+        >
           <Text style={styles.buttonText}>Login</Text>
         </TouchableOpacity>
 

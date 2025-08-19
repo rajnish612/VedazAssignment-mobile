@@ -4,12 +4,57 @@ import {
   View,
   TextInput,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import React, { useState } from 'react';
-
+import { SERVER_URL, X_API_KEY } from '@env';
 const Register = ({ navigation }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [errors, setErrors] = useState('');
+  const validateForm = () => {
+    let isValid = true; // Reset errors
+    let tempErrors = {};
+    if (!username) {
+      tempErrors.username = 'Username is required';
+      isValid = false;
+    }
+    if (!password) {
+      tempErrors.password = 'Password is required';
+      isValid = false;
+    }
+    setErrors(tempErrors);
+    return isValid;
+  };
+  const handleRegister = async () => {
+    const isValid = validateForm();
+    console.log(SERVER_URL);
+
+    if (!isValid) {
+      return;
+    }
+    try {
+      const res = await fetch(`${SERVER_URL}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': X_API_KEY,
+        },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        Alert.alert('success', data.message);
+        navigation.navigate('Login');
+      } else if (!data.success && data.message) {
+        Alert.alert('error', data.message);
+      }
+    } catch (err) {
+      console.log(err);
+      Alert.alert(err.message);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -24,7 +69,9 @@ const Register = ({ navigation }) => {
             onChangeText={setUsername}
             placeholderTextColor="#666"
           />
-
+          {errors.username && (
+            <Text style={{ color: 'red' }}>{errors.username}</Text>
+          )}
           <TextInput
             style={styles.input}
             placeholder="Password"
@@ -33,9 +80,15 @@ const Register = ({ navigation }) => {
             secureTextEntry
             placeholderTextColor="#666"
           />
+          {errors.password && (
+            <Text style={{ color: 'red' }}>{errors.password}</Text>
+          )}
         </View>
 
-        <TouchableOpacity style={styles.registerButton}>
+        <TouchableOpacity
+          onPress={() => handleRegister()}
+          style={styles.registerButton}
+        >
           <Text style={styles.buttonText}>Register</Text>
         </TouchableOpacity>
 
