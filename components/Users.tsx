@@ -133,8 +133,23 @@ const Users = ({ navigation }) => {
       }
     });
     return () => {
-      socket.off('disconnect');
-      socket.off('new');
+      socket.off('connect');
+      socket.off('new', newMessage => {
+        if (
+          newMessage.sender._id === self._id ||
+          newMessage.receiver._id === self._id
+        ) {
+          const otherUserId =
+            newMessage.sender._id === self._id
+              ? newMessage.receiver._id
+              : newMessage.sender._id;
+
+          setLastMessages(prev => ({
+            ...prev,
+            [otherUserId]: newMessage.content,
+          }));
+        }
+      });
     };
   }, [socket, self?._id]);
 

@@ -11,6 +11,7 @@ import {
 import { SERVER_URL, X_API_KEY } from '@env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useMessages } from '../context/MessageContext';
+import { ScrollToLocationParamsType } from 'react-native/types_generated/index';
 
 const Conversation = ({ navigation, route }) => {
   const { self, socket } = route.params;
@@ -107,15 +108,49 @@ const Conversation = ({ navigation, route }) => {
     };
     fetchMessages();
   }, [route?.params?.userId, token]);
+  const handleReadMessages = async () => {
+    try {
+      const res = await fetch(
+        SERVER_URL + '/conversation/' + route?.params?.userId + '/read',
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': X_API_KEY,
+            authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            userId: route?.params?.userId,
+          }),
+        },
+      );
+      const data = await res.json();
+      console.log(data, 'data');
+    } catch (err) {
+      console.log('error', err);
+
+      Alert.alert('unable to read messge', err.message);
+    }
+  };
   useEffect(() => {
     if (!socket) return;
 
-    socket.on('new', newMessage => {
+    const handleNewMessage = newMessage => {
+      socket.emit('messages-read', {
+        senderId: self?._id,
+        receiverId: route?.params?.userId,
+      });
       setMessages(prevMessages => [...prevMessages, newMessage]);
-    });
+    };
 
+    socket.on('new', handleNewMessage);
+    // Alert.alert('new message');
+    //       socket.emit('messages-read', {
+    //         senderId: self?._id,
+    //         receiverId: route?.params?.userId,
+    //       });
     return () => {
-      socket.off('new');
+      socket.off('new', handleNewMessage);
       setMessages([]); // Clear messages on unmount
     };
   }, [socket, self?._id, route?.params?.userId]);
@@ -137,6 +172,44 @@ const Conversation = ({ navigation, route }) => {
       socket.off('stopTyping', isUserStopTyping);
     };
   }, [socket, route?.params?.userId]);
+  useEffect(() => {
+    handleReadMessages();
+    socket.emit('messages-read', {
+      senderId: self?._id,
+      receiverId: route?.params?.userId,
+    });
+    return () => {
+      socket.off('messages-read', {
+        senderId: self?._id,
+        receiverId: route?.params?.userId,
+      });
+    };
+  }, [socket, self?._id, route?.params?.userId, token]);
+  useEffect(() => {
+    socket.on('messages-read', ({ senderId }) => {
+      // Alert.alert('Messages read', `Messages read by ${senderId}`);
+      // if (senderId === route?.params?.userId) {
+      setMessages(prevMessages =>
+        prevMessages.map(msg =>
+          msg.receiver._id === senderId ? { ...msg, read: true } : msg,
+        ),
+      );
+      // }
+    });
+    return () => {
+      socket.off('messages-read', ({ senderId }) => {
+        // if (senderId === route?.params?.userId) {
+        setMessages(prevMessages =>
+          prevMessages.map(msg =>
+            msg.receiver._id === senderId ? { ...msg, read: true } : msg,
+          ),
+        );
+        // }
+      });
+    };
+  }, [socket, route?.params?.userId, self?._id]);
+  console.log('messages', messages);
+
   const renderMessage = ({ item }) => (
     <View style={styles.messageContainer}>
       {item?.sender._id !== self?._id && item?.content && (
@@ -162,6 +235,9 @@ const Conversation = ({ navigation, route }) => {
         >
           {item.content}
         </Text>
+        {item?.sender?._id === self?._id && (
+          <Text>{item.read ? 'read' : 'not read'}</Text>
+        )}
       </View>
     </View>
   );
