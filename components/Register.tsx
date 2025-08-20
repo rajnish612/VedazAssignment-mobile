@@ -29,7 +29,6 @@ const Register = ({ navigation }) => {
   };
   const handleRegister = async () => {
     const isValid = validateForm();
-    console.log(SERVER_URL);
 
     if (!isValid) {
       return;
@@ -52,7 +51,6 @@ const Register = ({ navigation }) => {
         Alert.alert('error', data.message);
       }
     } catch (err) {
-      console.log(err);
       Alert.alert(err.message);
     }
   };
@@ -60,7 +58,7 @@ const Register = ({ navigation }) => {
     const checkLogin = async () => {
       const token = await AsyncStorage.getItem('token');
       if (token) {
-        navigation.navigate('Users');
+        navigation.replace('Users');
       }
     };
     checkLogin();

@@ -59,7 +59,7 @@ const Login = ({ navigation }) => {
     const checkLogin = async () => {
       const token = await AsyncStorage.getItem('token');
       if (token) {
-        navigation.navigate('Users');
+        navigation.replace('Users');
       }
     };
     checkLogin();

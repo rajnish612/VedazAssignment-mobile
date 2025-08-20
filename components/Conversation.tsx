@@ -11,8 +11,7 @@ import {
 import { SERVER_URL, X_API_KEY } from '@env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useMessages } from '../context/MessageContext';
-import { ScrollToLocationParamsType } from 'react-native/types_generated/index';
-
+import Icon from 'react-native-vector-icons/Ionicons';
 const Conversation = ({ navigation, route }) => {
   const { self, socket } = route.params;
   const [isTyping, setIsTyping] = useState(false);
@@ -35,7 +34,6 @@ const Conversation = ({ navigation, route }) => {
   }, []);
   const handleTyping = () => {
     if (!route?.params?.userId) {
-      console.log('No receiver ID found');
       return;
     }
 
@@ -125,10 +123,7 @@ const Conversation = ({ navigation, route }) => {
         },
       );
       const data = await res.json();
-      console.log(data, 'data');
     } catch (err) {
-      console.log('error', err);
-
       Alert.alert('unable to read messge', err.message);
     }
   };
@@ -187,8 +182,6 @@ const Conversation = ({ navigation, route }) => {
   }, [socket, self?._id, route?.params?.userId, token]);
   useEffect(() => {
     socket.on('messages-read', ({ senderId }) => {
-      // Alert.alert('Messages read', `Messages read by ${senderId}`);
-      // if (senderId === route?.params?.userId) {
       setMessages(prevMessages =>
         prevMessages.map(msg =>
           msg.receiver._id === senderId ? { ...msg, read: true } : msg,
@@ -198,17 +191,14 @@ const Conversation = ({ navigation, route }) => {
     });
     return () => {
       socket.off('messages-read', ({ senderId }) => {
-        // if (senderId === route?.params?.userId) {
         setMessages(prevMessages =>
           prevMessages.map(msg =>
             msg.receiver._id === senderId ? { ...msg, read: true } : msg,
           ),
         );
-        // }
       });
     };
   }, [socket, route?.params?.userId, self?._id]);
-  console.log('messages', messages);
 
   const renderMessage = ({ item }) => (
     <View style={styles.messageContainer}>
@@ -236,7 +226,11 @@ const Conversation = ({ navigation, route }) => {
           {item.content}
         </Text>
         {item?.sender?._id === self?._id && (
-          <Text>{item.read ? 'read' : 'not read'}</Text>
+          <Icon
+            size={14}
+            color="white"
+            name={item?.read ? 'checkmark-done' : 'checkmark-outline'}
+          />
         )}
       </View>
     </View>
@@ -244,10 +238,6 @@ const Conversation = ({ navigation, route }) => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        {/* <Text style={styles.headerText}>Chat with {messages[0].receiver}</Text> */}
-      </View>
-
       <FlatList
         data={messages}
         renderItem={renderMessage}
@@ -360,14 +350,16 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   typingContainer: {
+    marginBottom: 'auto',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: 'transparent',
+    backgroundColor: 'white',
   },
   typingText: {
     color: '#666',
-    fontSize: 12,
+    fontSize: 30,
     fontStyle: 'italic',
+    fontWeight: 'bold',
     marginLeft: 8,
   },
 });

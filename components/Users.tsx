@@ -77,7 +77,7 @@ const Users = ({ navigation }) => {
         setUsers(data?.users);
 
         // Fetch last message for each user
-        data?.users.forEach(user => {
+        data?.users?.forEach(user => {
           fetchLastMessage(user._id);
         });
       } catch (err) {
@@ -205,7 +205,9 @@ const Users = ({ navigation }) => {
           navigation.navigate('Login');
         }}
       >
-        <Text>Logout</Text>
+        <Text style={{ textAlign: 'center', color: 'white', fontSize: 20 }}>
+          Logout
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -218,6 +220,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
     padding: 16,
+  },
+  logoutButton: {
+    height: 40,
+    marginHorizontal: 'auto',
+    width: '90%',
+    textAlign: 'center',
+    backgroundColor: 'blue',
   },
   loadingContainer: {
     flex: 1,
