@@ -33,11 +33,16 @@ const Conversation = ({ navigation, route }) => {
     checkToken();
   }, []);
   const handleTyping = () => {
+    if (!route?.params?.userId) {
+      console.log('No receiver ID found');
+      return;
+    }
+
     if (!isTyping) {
       setIsTyping(true);
       socket.emit('typing', {
         userId: self?._id,
-        receiverId: route?.params?.userId,
+        receiverId: route.params.userId,
       });
     }
     if (typingTimeout) clearTimeout(typingTimeout);
@@ -48,7 +53,7 @@ const Conversation = ({ navigation, route }) => {
         userId: self?._id,
         receiverId: route?.params?.userId,
       });
-    });
+    }, 2000);
   };
   const sendMessage = async () => {
     if (!message.trim()) return;
@@ -179,9 +184,15 @@ const Conversation = ({ navigation, route }) => {
       <FlatList
         data={messages}
         renderItem={renderMessage}
-        keyExtractor={item => item.id}
+        keyExtractor={item => item._id} // Changed from item.id
         contentContainerStyle={styles.messagesList}
       />
+
+      {userTyping && (
+        <View style={styles.typingContainer}>
+          <Text style={styles.typingText}>typing...</Text>
+        </View>
+      )}
 
       <View style={styles.inputContainer}>
         <TextInput
@@ -280,5 +291,16 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  typingContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'transparent',
+  },
+  typingText: {
+    color: '#666',
+    fontSize: 12,
+    fontStyle: 'italic',
+    marginLeft: 8,
   },
 });
