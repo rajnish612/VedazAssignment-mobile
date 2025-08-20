@@ -53,7 +53,7 @@ const Users = ({ navigation }) => {
         }));
       }
     } catch (err) {
-      console.error('Error fetching last message:', err);
+      Alert.alert('Error fetching last message', err.message);
     }
   };
 
@@ -81,7 +81,7 @@ const Users = ({ navigation }) => {
           fetchLastMessage(user._id);
         });
       } catch (err) {
-        console.log(err);
+        Alert.alert('Error fetching users', err.message);
       } finally {
         setLoading(false);
       }
@@ -135,7 +135,6 @@ const Users = ({ navigation }) => {
     return () => {
       socket.off('disconnect');
       socket.off('new');
-      console.log('Socket disconnected');
     };
   }, [socket, self?._id]);
 

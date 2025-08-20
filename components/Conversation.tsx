@@ -111,16 +111,7 @@ const Conversation = ({ navigation, route }) => {
     if (!socket) return;
 
     socket.on('new', newMessage => {
-      console.log('new message', newMessage);
-
-      if (
-        (newMessage.receiver._id === self?._id ||
-          newMessage.sender._id === self?._id) &&
-        (newMessage.sender._id === route?.params?.userId ||
-          newMessage.receiver._id === route?.params?.userId)
-      ) {
-        setMessages(prevMessages => [...prevMessages, newMessage]);
-      }
+      setMessages(prevMessages => [...prevMessages, newMessage]);
     });
 
     return () => {
