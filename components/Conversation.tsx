@@ -10,32 +10,14 @@ import {
 } from 'react-native';
 import { SERVER_URL, X_API_KEY } from '@env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useMessages } from '../context/MessageContext';
+
 const Conversation = ({ navigation, route }) => {
   const { self, socket } = route.params;
+  const { messages, setMessages, setLastMessages } = useMessages();
   const [message, setMessage] = useState('');
   const [token, setToken] = useState('');
   console.log('socket', socket);
-
-  const [messages, setMessages] = useState([
-    {
-      id: '1',
-      text: 'Hey there!',
-      sender: 'John',
-      receiver: 'Jane',
-    },
-    {
-      id: '2',
-      text: 'Hi! How are you?',
-      sender: 'Jane',
-      receiver: 'John',
-    },
-    {
-      id: '3',
-      text: 'I am good, thanks!',
-      sender: 'John',
-      receiver: 'Jane',
-    },
-  ]);
 
   useEffect(() => {
     const checkToken = async () => {
@@ -66,19 +48,16 @@ const Conversation = ({ navigation, route }) => {
       const data = await res.json();
 
       if (data.success) {
-        setMessages([
-          ...messages,
-          {
-            ...data.messages, // Assuming the API returns the message object
-          },
-        ]);
+        setMessages(prevMessages => [...prevMessages, data.messages]);
         setMessage('');
+        setLastMessages(prev => ({
+          ...prev,
+          [route?.params?.userId]: message,
+        }));
+        socket.emit('message', data.messages);
       }
-      socket.emit('message', {
-        ...data.messages,
-      });
     } catch (err) {
-      Alert.alert('Eror sending message', err.message);
+      Alert.alert('Error sending message', err.message);
     }
   };
   useEffect(() => {
@@ -104,15 +83,24 @@ const Conversation = ({ navigation, route }) => {
     fetchMessages();
   }, [route?.params?.userId, token]);
   useEffect(() => {
+    if (!socket) return;
+
     socket.on('new', newMessage => {
       if (
-        newMessage.receiver._id === self?._id ||
-        newMessage.sender._id === self?._id
+        (newMessage.receiver._id === self?._id ||
+          newMessage.sender._id === self?._id) &&
+        (newMessage.sender._id === route?.params?.userId ||
+          newMessage.receiver._id === route?.params?.userId)
       ) {
         setMessages(prevMessages => [...prevMessages, newMessage]);
       }
     });
-  }, [socket, self?._id]);
+
+    return () => {
+      socket.off('new');
+      setMessages([]); // Clear messages on unmount
+    };
+  }, [socket, self?._id, route?.params?.userId]);
   console.log(messages);
 
   const renderMessage = ({ item }) => (

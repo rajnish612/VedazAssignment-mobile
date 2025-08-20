@@ -6,17 +6,20 @@ import { NavigationContainer } from '@react-navigation/native';
 import Register from './components/Register';
 import Users from './components/Users';
 import Conversation from './components/Conversation';
+import { MessageProvider } from './context/MessageContext';
 const Stack = createNativeStackNavigator();
 const App = () => {
   return (
-    <NavigationContainer>
-      <Stack.Navigator initialRouteName="Register">
-        <Stack.Screen name="Login" component={Login} />
-        <Stack.Screen name="Register" component={Register} />
-        <Stack.Screen name="Users" component={Users} />
-        <Stack.Screen name="Conversation" component={Conversation} />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <MessageProvider>
+      <NavigationContainer>
+        <Stack.Navigator initialRouteName="Register">
+          <Stack.Screen name="Login" component={Login} />
+          <Stack.Screen name="Register" component={Register} />
+          <Stack.Screen name="Users" component={Users} />
+          <Stack.Screen name="Conversation" component={Conversation} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </MessageProvider>
   );
 };
 

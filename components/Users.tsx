@@ -11,8 +11,11 @@ import {
 } from 'react-native';
 import useSocket from '../hooks/Socket.js';
 import { SERVER_URL, X_API_KEY } from '@env';
+import { useMessages } from '../context/MessageContext';
+
 const Users = ({ navigation }) => {
   const socket = useSocket();
+  const { lastMessages, setLastMessages, setMessages } = useMessages();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState('');
@@ -30,6 +33,30 @@ const Users = ({ navigation }) => {
 
     checkToken();
   }, []);
+
+  const fetchLastMessage = async userId => {
+    try {
+      const res = await fetch(`${SERVER_URL}/conversation/${userId}/messages`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': X_API_KEY,
+          authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+
+      if (data.success && data.messages.length > 0) {
+        const lastMsg = data.messages[data.messages.length - 1];
+        setLastMessages(prev => ({
+          ...prev,
+          [userId]: lastMsg.content,
+        }));
+      }
+    } catch (err) {
+      console.error('Error fetching last message:', err);
+    }
+  };
+
   useEffect(() => {
     const fetchUsers = async () => {
       setLoading(true);
@@ -48,12 +75,18 @@ const Users = ({ navigation }) => {
         }
         const data = await res.json();
         setUsers(data?.users);
+
+        // Fetch last message for each user
+        data?.users.forEach(user => {
+          fetchLastMessage(user._id);
+        });
       } catch (err) {
         console.log(err);
       } finally {
         setLoading(false);
       }
     };
+
     const fetchSelf = async () => {
       setLoading(true);
       try {
@@ -78,14 +111,34 @@ const Users = ({ navigation }) => {
     fetchUsers();
   }, [token]);
   useEffect(() => {
+    if (!socket || !self?._id) return;
+
     socket.on('connect', () => {
       socket.emit('join', { userId: self?._id });
     });
+    socket.on('new', newMessage => {
+      if (
+        newMessage.sender._id === self._id ||
+        newMessage.receiver._id === self._id
+      ) {
+        const otherUserId =
+          newMessage.sender._id === self._id
+            ? newMessage.receiver._id
+            : newMessage.sender._id;
+
+        setLastMessages(prev => ({
+          ...prev,
+          [otherUserId]: newMessage.content,
+        }));
+      }
+    });
     return () => {
       socket.off('disconnect');
+      socket.off('new');
       console.log('Socket disconnected');
     };
   }, [socket, self?._id]);
+
   const renderItem = ({ item }) => (
     <TouchableOpacity
       onPress={() =>
@@ -93,7 +146,7 @@ const Users = ({ navigation }) => {
           userId: item._id,
           username: item.username,
           self,
-          socket: socket,
+          socket,
         })
       }
       style={styles.userCard}
@@ -106,7 +159,9 @@ const Users = ({ navigation }) => {
         </View>
         <View style={styles.userDetails}>
           <Text style={styles.userName}>{item.username}</Text>
-          <Text style={styles.lastMessage}>{item.lastMessage}</Text>
+          <Text style={styles.lastMessage}>
+            {lastMessages[item._id] || 'No messages yet'}
+          </Text>
         </View>
       </View>
     </TouchableOpacity>
