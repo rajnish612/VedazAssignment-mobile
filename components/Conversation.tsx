@@ -14,10 +14,12 @@ import { useMessages } from '../context/MessageContext';
 
 const Conversation = ({ navigation, route }) => {
   const { self, socket } = route.params;
+  const [isTyping, setIsTyping] = useState(false);
+  const [userTyping, setUserTyping] = useState(false);
   const { messages, setMessages, setLastMessages } = useMessages();
   const [message, setMessage] = useState('');
   const [token, setToken] = useState('');
-  console.log('socket', socket);
+  let typingTimeout = null;
 
   useEffect(() => {
     const checkToken = async () => {
@@ -30,6 +32,24 @@ const Conversation = ({ navigation, route }) => {
     };
     checkToken();
   }, []);
+  const handleTyping = () => {
+    if (!isTyping) {
+      setIsTyping(true);
+      socket.emit('typing', {
+        userId: self?._id,
+        receiverId: route?.params?.userId,
+      });
+    }
+    if (typingTimeout) clearTimeout(typingTimeout);
+
+    typingTimeout = setTimeout(() => {
+      setIsTyping(false);
+      socket.emit('stopTyping', {
+        userId: self?._id,
+        receiverId: route?.params?.userId,
+      });
+    });
+  };
   const sendMessage = async () => {
     if (!message.trim()) return;
     try {
@@ -86,6 +106,8 @@ const Conversation = ({ navigation, route }) => {
     if (!socket) return;
 
     socket.on('new', newMessage => {
+      console.log('new message', newMessage);
+
       if (
         (newMessage.receiver._id === self?._id ||
           newMessage.sender._id === self?._id) &&
@@ -101,8 +123,24 @@ const Conversation = ({ navigation, route }) => {
       setMessages([]); // Clear messages on unmount
     };
   }, [socket, self?._id, route?.params?.userId]);
-  console.log(messages);
-
+  useEffect(() => {
+    const isUserTyping = data => {
+      if (data.userId === route?.params?.userId) {
+        setUserTyping(true);
+      }
+    };
+    const isUserStopTyping = data => {
+      if (data.userId === route?.params?.userId) {
+        setUserTyping(false);
+      }
+    };
+    socket.on('typing', isUserTyping);
+    socket.on('stopTyping', isUserStopTyping);
+    return () => {
+      socket.off('typing', isUserTyping);
+      socket.off('stopTyping', isUserStopTyping);
+    };
+  }, [socket, route?.params?.userId]);
   const renderMessage = ({ item }) => (
     <View style={styles.messageContainer}>
       {item?.sender._id !== self?._id && item?.content && (
@@ -149,7 +187,10 @@ const Conversation = ({ navigation, route }) => {
         <TextInput
           style={styles.input}
           value={message}
-          onChangeText={setMessage}
+          onChangeText={text => {
+            setMessage(text);
+            handleTyping();
+          }}
           placeholder="Type a message..."
         />
         <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
